@@ -4,7 +4,7 @@ with open("data.txt", "r") as file:
     for line in file:
         line = line.strip()
         if line:
-             new_elf.append(int(line))
+            new_elf.append(int(line))
         elif new_elf:
             elves.append(new_elf)
             new_elf = []
