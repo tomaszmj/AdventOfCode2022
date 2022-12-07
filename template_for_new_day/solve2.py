@@ -1,9 +1,13 @@
 #!/usr/bin/python
 
 def main():
-    with open("data.txt", "r") as f:
-        for line in f:
-            line = line.strip()
+    with open("data_small.txt", "r") as f:
+        for i, line in enumerate(f):
+            try:
+                line = line.strip()
+                print(line)
+            except BaseException as e:
+                print(f"error parsing line {i} ({line}): {e}")
     print(f"done")
 
 
