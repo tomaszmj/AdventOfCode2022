@@ -8,28 +8,9 @@ directions = {
 }
 
 
-def print_rope(rope: list):
-    min_x = min(r[0] for r in rope)
-    max_x = max(r[0] for r in rope)
-    min_y = min(r[1] for r in rope)
-    max_y = max(r[1] for r in rope)
-    points = {(0,0): "s"}
-    for i in range(len(rope)-1, 0, -1):
-        points[(rope[i][0], rope[i][1])] = str(i)
-    points[(rope[0][0], rope[0][1])] = "H"
-    for y in range(min_y, max_y+1):
-        for x in range(min_x, max_x+1):
-            if (x, y) in points:
-                print(points[(x, y)], end="")
-            else:
-                print("#", end="")
-        print("")
-
-
 def main():
     visited_points = {(0, 0)}
     rope = list([0, 0] for _ in range(10))
-    #print_rope(rope)
     with open("data.txt", "r") as f:
         for i, line in enumerate(f):
             try:
@@ -51,13 +32,9 @@ def main():
                             rope[i][1] += move_y
                             if i == len(rope) - 1:
                                 visited_points.add((rope[i][0], rope[i][1]))
-                #input()
-                #print_rope(rope)
-                #print("\n")
             except BaseException as e:
                 print(f"error parsing line {i} ({line}): {e}")
-                if isinstance(e, KeyboardInterrupt):
-                    raise
+                raise
     print(len(visited_points))
 
 

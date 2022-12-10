@@ -27,8 +27,6 @@ def main():
                     if abs_dx > 1 or abs_dy > 1:
                         tail_move_x = 0 if dx == 0 else dx // abs_dx
                         tail_move_y = 0 if dy == 0 else dy // abs_dy
-                        #new_tail = [tail[0] + tail_move_x, tail[1] + tail_move_y]
-                        #print(f"head {head}, tail moves from {tail} to {new_tail}")
                         tail[0] += tail_move_x
                         tail[1] += tail_move_y
                         visited_points.add((tail[0], tail[1]))
