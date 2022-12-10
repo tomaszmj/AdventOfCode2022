@@ -8,6 +8,7 @@ def main():
                 print(line)
             except BaseException as e:
                 print(f"error parsing line {i} ({line}): {e}")
+                raise
     print(f"done")
 
 
