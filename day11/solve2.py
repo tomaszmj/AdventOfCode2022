@@ -97,7 +97,7 @@ def main():
         except BaseException as e:
             print(f"error parsing line ({line}): {e}")
             raise
-    # least common multiple in case of given data can be computed by simple
+    # least common divisor in case of given data can be computed by simple
     # multiplication, because each monkey's divisible_by is a different prime number
     # (and even if input data was different, common_divisor just has to be some
     # common divisor of all divisible_by - it does not have to be the smallest one)
