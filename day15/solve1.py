@@ -35,9 +35,19 @@ def main():
             except BaseException as e:
                 print(f"error parsing line {i} ({line}): {e}")
                 raise
-    min_x = min(s[0]-r for s, r in zip(sensors, radius))
-    max_x = max(s[0]+r for s, r in zip(sensors, radius))
     y = 2000000
+    min_x, max_x = None, None
+    for s, r in zip(sensors, radius):
+        dy = abs(y - s[1])
+        max_abs_dx = r - dy
+        if max_abs_dx <= 0:
+            continue
+        min_x_in_sensor_range = s[0] - max_abs_dx
+        max_x_in_sensor_range = s[0] + max_abs_dx
+        if min_x is None or min_x_in_sensor_range < min_x:
+            min_x = min_x_in_sensor_range
+        if max_x is None or max_x_in_sensor_range > max_x:
+            max_x = max_x_in_sensor_range
     result = 0
     for x in range(min_x, max_x+1):
         if (x, y) in beacons:
