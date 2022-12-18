@@ -2,14 +2,6 @@
 from typing import Tuple, List, Set
 
 
-def field_can_contain_beacon(x, y, sensors, radius) -> bool:
-    for s, r in zip(sensors, radius):
-        distance = abs(x - s[0]) + abs(y - s[1])
-        if distance <= r:
-            return False
-    return True
-
-
 def main():
     sensors: List[Tuple[int, int]] = []
     beacons: Set[Tuple[int, int]] = set()
@@ -36,7 +28,8 @@ def main():
                 print(f"error parsing line {i} ({line}): {e}")
                 raise
     y = 2000000
-    min_x, max_x = None, None
+    # x_bounds is a list of pairs (min_x_in_sensor_range, max_x_in_sensor_range) for constant y
+    x_bounds = []
     for s, r in zip(sensors, radius):
         dy = abs(y - s[1])
         max_abs_dx = r - dy
@@ -44,16 +37,31 @@ def main():
             continue
         min_x_in_sensor_range = s[0] - max_abs_dx
         max_x_in_sensor_range = s[0] + max_abs_dx
-        if min_x is None or min_x_in_sensor_range < min_x:
-            min_x = min_x_in_sensor_range
-        if max_x is None or max_x_in_sensor_range > max_x:
-            max_x = max_x_in_sensor_range
+        x_bounds.append((min_x_in_sensor_range, max_x_in_sensor_range))
+    if len(x_bounds) == 0:
+        print(f"unexpected situation - nothing is covered by sensors at y={y}")
+        return
+    x_bounds.sort(key=lambda b: b[0])  # sort by min x (bounds start)
+    # Go over all bounds, counting number of fields covered by sensors.
+    begin = x_bounds[0][0]
+    end = x_bounds[0][1]
     result = 0
-    for x in range(min_x, max_x+1):
-        if (x, y) in beacons:
-            continue
-        if not field_can_contain_beacon(x, y, sensors, radius):
-            result += 1
+    for b in x_bounds[1:]:
+        # If the next bound has common part with the previous bound,
+        # just extend range of interest (begin, end)
+        if b[0] <= end:
+            end = max(end, b[1])
+        else:
+            # If the next bound does not have common part with the previous
+            # bound, add number of fields from the previous (begin, end)
+            # and start new range at the new bound.
+            result += end - begin + 1
+            begin = b[0]
+            end = b[1]
+    result += end - begin + 1  # the last range was not counted above - include it here
+    for b in beacons:
+        if b[1] == y:
+            result -= 1
     print(result)
 
 
