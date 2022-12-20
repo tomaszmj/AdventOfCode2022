@@ -43,23 +43,21 @@ def main():
 
     # "flood-fill" whole space outside of cubes:
     outsiders = set()
-    visited = set()
-    to_visit = []
-    to_visit.append(tuple(m for m in max_cube_coord))
-    while len(to_visit) > 0:
-        p = to_visit.pop()
-        if p in cubes:
-            continue
+    banned_points = cubes.copy()  # points that we do not want to visit or already visited
+    to_visit_stack = []
+    to_visit_stack.append(tuple(max_cube_coord))  # start with any point outside of cubes
+    while len(to_visit_stack) > 0:
+        p = to_visit_stack.pop()
         outsiders.add(p)
         for coord in range(3):
             for delta in [-1, 1]:
                 neighbour = tuple(p[i] if i != coord else p[i] + delta for i in range(3))
-                if neighbour in visited:
+                if neighbour in banned_points:
                     continue
                 if not is_witin_bounds(neighbour, min_cube_coord, max_cube_coord):
                     continue
-                visited.add(neighbour)
-                to_visit.append(neighbour)
+                to_visit_stack.append(neighbour)
+                banned_points.add(neighbour)
 
     # copied solution from part 1, but with check if neighbour is within "outsiders":
     result = 0
