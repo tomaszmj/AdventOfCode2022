@@ -42,20 +42,19 @@ class Volcano:
     def _find_max_flow(self, position: str, open_valves_subset: int, time_left: int, store: dict) -> int:
         key = (position, open_valves_subset, time_left)
         if key in store:
-            # print(f"_find_max_flow({key}) -> {store[key]} from store")
             return store[key]
-        # print(f"_find_max_flow({key}) ...")
-        open_valves = set()
         valves_to_open = {}
         current_flow = 0
         for i, valve in enumerate(self._valves_to_open):
             bitmask = 1<<i
             if bitmask & open_valves_subset:
-                open_valves.add(valve)
                 current_flow += self._flows[valve]
             else:
                 valves_to_open[valve] = bitmask
-        max_flow = current_flow * time_left
+        max_flow = current_flow * time_left  # case in which we do not open any more valves
+        # split problem into:
+        # - get to one of the valves_to_open and open it (calculate flow in the meantime)
+        # - recursively call _find_max_flow with one more valve in open_valves_subset and less time_left
         for valve in valves_to_open:
             time_to_open = len(self._shortest_paths[(position, valve)]) + 1
             if time_to_open > time_left:
@@ -67,7 +66,6 @@ class Volcano:
             flow = flow_until_new_open + flow_after_new_open
             max_flow = max(max_flow, flow)
         store[key] = max_flow
-        # print(f"... _find_max_flow({key}) -> {max_flow}")
         return max_flow
 
 
