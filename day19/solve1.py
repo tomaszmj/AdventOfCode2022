@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import math
 from typing import List, Dict
 from collections import namedtuple, defaultdict
 
@@ -89,11 +90,11 @@ class Blueprint:
         for resource in RobotResourceByIndex[:3]:
             key = "max_" + resource
             stats[key] = max(stats[key], getattr(state, resource))
-        geodes = 0
-        if state.time_left == 1:
-            self._store[state] = state.geode_robots
+        if state.time_left <= 0:
+            self._store[state] = 0
             stats["out of time"] += 1
-            return state.geode_robots
+            return 0
+        geodes = state.geode_robots * state.time_left
         
         # If we have so many robots that we can always build geode robot,
         # we can maximize geodes count by simply building geode robot each turn.
@@ -106,43 +107,37 @@ class Blueprint:
             return optimisitc_max_geodes
 
         # Subproblems if we try to build one of the robots:
-        can_build_count = 0
         for robot_index, costs in enumerate(self._costs):
-            if not can_build_now(state, costs):
-                continue
-            can_build_count += 1
+            robots_count = state[robot_index]
             if robot_index < 3:  # ore/clay/obsidian
-                robots_count = state[robot_index]
                 if robots_count >= self._max_costs[robot_index]:
                     # there is no point in building given robot
                     continue
+            time_until_building_robot = 0
+            for resource, cost in costs.items():
+                diff = cost - getattr(state, resource)
+                if diff <= 0:
+                    continue  # we have enough of given resource to build robot now
+                miners = state[RobotIndexByResource[resource]]
+                if diff > 0 and miners == 0:
+                    time_until_building_robot = state.time_left  # it means we will never get resources for that robot
+                    break
+                time_until_building_robot = max(time_until_building_robot, math.ceil(diff / miners))
+            if time_until_building_robot >= state.time_left:
+                continue
             new_robots = [state[i] + 1 if i == robot_index else state[i] for i in range(4)]
+            t = time_until_building_robot + 1
             new_state = State(
                 ore_robots=new_robots[0],
                 clay_robots=new_robots[1],
                 obsidian_robots=new_robots[2],
                 geode_robots=new_robots[3],
-                ore=self._new_resource_count("ore", state, costs["ore"]),
-                clay=self._new_resource_count("clay", state, costs["clay"]),
-                obsidian=self._new_resource_count("obsidian", state, costs["obsidian"]),
-                time_left=state.time_left-1,
+                ore=state.ore + t * state.ore_robots - costs["ore"],
+                clay=state.clay + t * state.clay_robots - costs["clay"],
+                obsidian=state.obsidian + t * state.obsidian_robots - costs["obsidian"],
+                time_left=state.time_left-t,
             )
-            geodes = max(geodes, state.geode_robots + self._max_geodes(new_state, max_so_far_by_time_left, stats))
-
-        # Subproblem if we do not build new robots. There is no point in exploring it if we can
-        # build all the robots (there is no profit from not building any robot).
-        if can_build_count < 4:
-            new_state = State(
-                ore_robots=state.ore_robots,
-                clay_robots=state.clay_robots,
-                obsidian_robots=state.obsidian_robots,
-                geode_robots=state.geode_robots,
-                ore=self._new_resource_count("ore", state, 0),
-                clay=self._new_resource_count("clay", state, 0),
-                obsidian=self._new_resource_count("obsidian", state, 0),
-                time_left=state.time_left-1,
-            )
-            geodes = max(geodes, state.geode_robots + self._max_geodes(new_state, max_so_far_by_time_left, stats))
+            geodes = max(geodes, state.geode_robots*t + self._max_geodes(new_state, max_so_far_by_time_left, stats))
 
         self._store[state] = geodes
         stats["calculations"] += 1
@@ -178,7 +173,7 @@ def all_ints_from_str(s: str) -> List[int]:
 
 def main():
     blueprints = []
-    with open("data_small.txt", "r") as f:
+    with open("data.txt", "r") as f:
         for i, line in enumerate(f):
             try:
                 line = line.strip()
