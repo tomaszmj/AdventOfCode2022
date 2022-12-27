@@ -15,14 +15,6 @@ RobotIndexByResource = {
 RobotResourceByIndex = ["ore", "clay", "obsidian", "geode"]
 
 
-# can_build_now checks if resources we have now are enough to cover given cost
-def can_build_now(state: State, costs: Dict[str, int]) -> bool:
-    for resource, cost in costs.items():
-        if getattr(state, resource) < cost:
-            return False
-    return True
-
-
 # can_always_build checks if resources we have now and we are going to produce
 # are enough to cover given cost each minute
 def can_always_build(state: State, costs: Dict[str, int]) -> bool:
@@ -74,8 +66,7 @@ class Blueprint:
     def count_max_geodes(self, time_left: int) -> int:
         stats = defaultdict(lambda: 0)
         state = State(ore_robots=1, time_left=time_left)
-        max_so_far_by_time_left = [0]*time_left
-        result = self._max_geodes(state, max_so_far_by_time_left, stats)
+        result = self._max_geodes(state, stats)
         stats_str = ", ".join(f"{key}: {value}" for key, value in stats.items())
         print(f"{self._number} count_max_geodes({time_left}) = {result} (stats {stats_str})")
         return result
@@ -83,7 +74,7 @@ class Blueprint:
     def quality_level(self, time_left: int) -> int:
         return self._number * self.count_max_geodes(time_left)
 
-    def _max_geodes(self, state: State, max_so_far_by_time_left: List[int], stats: Dict[str, int]) -> int:
+    def _max_geodes(self, state: State, stats: Dict[str, int]) -> int:
         if state in self._store:
             stats["lookups"] += 1
             return self._store[state]
@@ -137,20 +128,11 @@ class Blueprint:
                 obsidian=state.obsidian + t * state.obsidian_robots - costs["obsidian"],
                 time_left=state.time_left-t,
             )
-            geodes = max(geodes, state.geode_robots*t + self._max_geodes(new_state, max_so_far_by_time_left, stats))
+            geodes = max(geodes, state.geode_robots*t + self._max_geodes(new_state, stats))
 
         self._store[state] = geodes
         stats["calculations"] += 1
         return geodes
-    
-    def _new_resource_count(self, resource: str, state: State, current_turn_cost: int) -> int:
-        robot_index = RobotIndexByResource[resource]
-        robots_count = state[robot_index]
-        resource_count = getattr(state, resource)
-        max_cost = self._max_costs[robot_index]
-        if robots_count >= max_cost and resource_count >= max_cost:
-            return max_cost  # we can treat resource as if it was infinite
-        return resource_count + robots_count - current_turn_cost
     
     def __str__(self) -> str:
         return f"{self._number}: costs {self._costs}, max costs {self._max_costs}"
@@ -184,10 +166,10 @@ def main():
                 print(f"error parsing line {i} ({line}): {e}")
                 raise
     print("part1", sum(bp.quality_level(24) for bp in blueprints))
-    # result = 1
-    # for bp in blueprints[:3]:
-    #     result *= bp.count_max_geodes(32)
-    # print("part2", result)
+    result = 1
+    for bp in blueprints[:3]:
+        result *= bp.count_max_geodes(32)
+    print("part2", result)
 
 
 if __name__ == "__main__":
