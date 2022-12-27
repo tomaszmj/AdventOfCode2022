@@ -67,37 +67,43 @@ class Blueprint:
             for resource, cost in robot_costs.items():
                 i = RobotIndexByResource[resource]
                 self._max_costs[i] = max(self._max_costs[i], cost)
+        self._store: Dict[State, int] = {}
 
 
-    def count_max_geodes(self) -> int:
-        state = State(ore_robots=1, time_left=24)
-        store = defaultdict(lambda: 0)
-        result = self._max_geodes(state, store)
-        print(f"{self._number}: {result} (lookups: {store[-1]}, calculations: {store[-2]})")
+    def count_max_geodes(self, time_left: int) -> int:
+        stats = defaultdict(lambda: 0)
+        state = State(ore_robots=1, time_left=time_left)
+        max_so_far_by_time_left = [0]*time_left
+        result = self._max_geodes(state, max_so_far_by_time_left, stats)
+        stats_str = ", ".join(f"{key}: {value}" for key, value in stats.items())
+        print(f"{self._number} count_max_geodes({time_left}) = {result} (stats {stats_str})")
         return result
 
-    def quality_level(self) -> int:
-        return self._number * self.count_max_geodes()
+    def quality_level(self, time_left: int) -> int:
+        return self._number * self.count_max_geodes(time_left)
 
-    def _max_geodes(self, state: State, store: Dict[State, int]) -> int:
-        if state in store:
-            store[-1] = store[-1] + 1
-            return store[state]
+    def _max_geodes(self, state: State, max_so_far_by_time_left: List[int], stats: Dict[str, int]) -> int:
+        if state in self._store:
+            stats["lookups"] += 1
+            return self._store[state]
+        for resource in RobotResourceByIndex[:3]:
+            key = "max_" + resource
+            stats[key] = max(stats[key], getattr(state, resource))
         geodes = 0
         if state.time_left == 1:
-            store[state] = state.geode_robots
-            store[-2] = store[-2] + 1
+            self._store[state] = state.geode_robots
+            stats["out of time"] += 1
             return state.geode_robots
-
+        
         # If we have so many robots that we can always build geode robot,
         # we can maximize geodes count by simply building geode robot each turn.
         # In this case max geodes count will be a sum of an arithmetic sequence.
         if can_always_build(state, self._costs[3]):
             max_geode_robots = state.geode_robots + state.time_left - 1
-            geodes = (state.geode_robots + max_geode_robots) * state.time_left // 2
-            store[state] = geodes
-            store[-2] = store[-2] + 1
-            return geodes
+            optimisitc_max_geodes = (state.geode_robots + max_geode_robots) * state.time_left // 2
+            self._store[state] = optimisitc_max_geodes
+            stats["arithmetic sequence"] += 1
+            return optimisitc_max_geodes
 
         # Subproblems if we try to build one of the robots:
         can_build_count = 0
@@ -121,7 +127,7 @@ class Blueprint:
                 obsidian=self._new_resource_count("obsidian", state, costs["obsidian"]),
                 time_left=state.time_left-1,
             )
-            geodes = max(geodes, state.geode_robots + self._max_geodes(new_state, store))
+            geodes = max(geodes, state.geode_robots + self._max_geodes(new_state, max_so_far_by_time_left, stats))
 
         # Subproblem if we do not build new robots. There is no point in exploring it if we can
         # build all the robots (there is no profit from not building any robot).
@@ -136,10 +142,10 @@ class Blueprint:
                 obsidian=self._new_resource_count("obsidian", state, 0),
                 time_left=state.time_left-1,
             )
-            geodes = max(geodes, state.geode_robots + self._max_geodes(new_state, store))
+            geodes = max(geodes, state.geode_robots + self._max_geodes(new_state, max_so_far_by_time_left, stats))
 
-        store[state] = geodes
-        store[-2] = store[-2] + 1
+        self._store[state] = geodes
+        stats["calculations"] += 1
         return geodes
     
     def _new_resource_count(self, resource: str, state: State, current_turn_cost: int) -> int:
@@ -172,19 +178,21 @@ def all_ints_from_str(s: str) -> List[int]:
 
 def main():
     blueprints = []
-    with open("data.txt", "r") as f:
+    with open("data_small.txt", "r") as f:
         for i, line in enumerate(f):
             try:
                 line = line.strip()
                 if not line:
                     continue
-                bp = Blueprint(all_ints_from_str(line))
-                print(bp)
-                blueprints.append(bp)
+                blueprints.append(Blueprint(all_ints_from_str(line)))
             except BaseException as e:
                 print(f"error parsing line {i} ({line}): {e}")
                 raise
-    print(sum(bp.quality_level() for bp in blueprints))
+    print("part1", sum(bp.quality_level(24) for bp in blueprints))
+    # result = 1
+    # for bp in blueprints[:3]:
+    #     result *= bp.count_max_geodes(32)
+    # print("part2", result)
 
 
 if __name__ == "__main__":
