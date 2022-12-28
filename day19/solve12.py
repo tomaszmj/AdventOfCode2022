@@ -64,26 +64,18 @@ class Blueprint:
 
 
     def count_max_geodes(self, time_left: int) -> int:
-        stats = defaultdict(lambda: 0)
         state = State(ore_robots=1, time_left=time_left)
-        result = self._max_geodes(state, stats)
-        stats_str = ", ".join(f"{key}: {value}" for key, value in stats.items())
-        print(f"{self._number} count_max_geodes({time_left}) = {result} (stats {stats_str})")
+        result = self._max_geodes(state)
         return result
 
     def quality_level(self, time_left: int) -> int:
         return self._number * self.count_max_geodes(time_left)
 
-    def _max_geodes(self, state: State, stats: Dict[str, int]) -> int:
+    def _max_geodes(self, state: State) -> int:
         if state in self._store:
-            stats["lookups"] += 1
             return self._store[state]
-        for resource in RobotResourceByIndex[:3]:
-            key = "max_" + resource
-            stats[key] = max(stats[key], getattr(state, resource))
         if state.time_left <= 0:
             self._store[state] = 0
-            stats["out of time"] += 1
             return 0
         geodes = state.geode_robots * state.time_left
         
@@ -94,7 +86,6 @@ class Blueprint:
             max_geode_robots = state.geode_robots + state.time_left - 1
             optimisitc_max_geodes = (state.geode_robots + max_geode_robots) * state.time_left // 2
             self._store[state] = optimisitc_max_geodes
-            stats["arithmetic sequence"] += 1
             return optimisitc_max_geodes
 
         # Subproblems if we try to build one of the robots:
@@ -128,10 +119,9 @@ class Blueprint:
                 obsidian=state.obsidian + t * state.obsidian_robots - costs["obsidian"],
                 time_left=state.time_left-t,
             )
-            geodes = max(geodes, state.geode_robots*t + self._max_geodes(new_state, stats))
+            geodes = max(geodes, state.geode_robots*t + self._max_geodes(new_state))
 
         self._store[state] = geodes
-        stats["calculations"] += 1
         return geodes
     
     def __str__(self) -> str:
@@ -174,4 +164,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
