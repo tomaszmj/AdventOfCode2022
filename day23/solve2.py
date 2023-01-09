@@ -45,9 +45,11 @@ def main():
                 print(f"error parsing line {i} ({line}): {e}")
                 raise
     round = 0
-    while True:
+    moved = True
+    while moved:
+        moved = False
         move_src_dst = {}
-        move_dst_src = {}
+        move_dst_count = defaultdict(lambda: 0)
         for x, y in elves:
             if not has_any_neighbour(x, y, elves):
                 continue
@@ -55,21 +57,17 @@ def main():
                 dir = DIRECTIONS[(round+i) % 4]
                 if can_move(x, y, elves, dir):
                     new_pos = (x + dir[1][0], y + dir[1][1])
-                    if new_pos in move_dst_src:
-                        src = move_dst_src[new_pos]
-                        del move_src_dst[src]
-                        del move_dst_src[new_pos]
-                    else:
-                        move_src_dst[(x, y)] = new_pos
-                        move_dst_src[new_pos] = (x, y)
+                    move_src_dst[(x, y)] = new_pos
+                    move_dst_count[new_pos] += 1
                     break
-        if len(move_src_dst) == 0:
-            print(round+1)
-            return
         for src, dst in move_src_dst.items():
+            if move_dst_count[dst] > 1:
+                continue
             elves.remove(src)
             elves.add(dst)
+            moved = True
         round += 1
+    print(round)
 
 
 if __name__ == "__main__":

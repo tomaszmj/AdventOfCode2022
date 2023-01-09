@@ -46,7 +46,7 @@ def main():
                 raise
     for round in range(10):
         move_src_dst = {}
-        move_dst_src = {}
+        move_dst_count = defaultdict(lambda: 0)
         for x, y in elves:
             if not has_any_neighbour(x, y, elves):
                 continue
@@ -54,15 +54,12 @@ def main():
                 dir = DIRECTIONS[(round+i) % 4]
                 if can_move(x, y, elves, dir):
                     new_pos = (x + dir[1][0], y + dir[1][1])
-                    if new_pos in move_dst_src:
-                        src = move_dst_src[new_pos]
-                        del move_src_dst[src]
-                        del move_dst_src[new_pos]
-                    else:
-                        move_src_dst[(x, y)] = new_pos
-                        move_dst_src[new_pos] = (x, y)
+                    move_src_dst[(x, y)] = new_pos
+                    move_dst_count[new_pos] += 1
                     break
         for src, dst in move_src_dst.items():
+            if move_dst_count[dst] > 1:
+                continue
             elves.remove(src)
             elves.add(dst)
     min_x = min(e[0] for e in elves)
