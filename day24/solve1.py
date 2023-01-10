@@ -1,5 +1,6 @@
 #!/usr/bin/python
-from typing import List, Set, Tuple, Dict
+from typing import List, Set, Tuple
+from collections import defaultdict
 
 # precompute_blizzards returns a list - each i-th element of that
 # list is a set of fields occupied by blizzards in minute i.
@@ -30,10 +31,10 @@ def precompute_blizzards(board: List[str]) -> List[Set[Tuple[int, int]]]:
     fields = set()
     for b in blizzards:
         fields.add((b[0], b[1]))
-    occupied_fields_by_time = []
+    blizzard_fields_by_time = []
     periodic = False
     while not periodic:
-        occupied_fields_by_time.append(frozenset(fields))
+        blizzard_fields_by_time.append(frozenset(fields))
         fields = set()
         blizzards_direction_by_field = {}
         for b in blizzards:
@@ -54,26 +55,53 @@ def precompute_blizzards(board: List[str]) -> List[Set[Tuple[int, int]]]:
             blizzards_direction_by_field[(x, y)] = (dx, dy)
         if blizzards_direction_by_field == blizzards_starting_direction_by_field:
             periodic = True
-        if len(occupied_fields_by_time) > max_period:
+        if len(blizzard_fields_by_time) > max_period:
             raise BaseException(f"periodic positions of blizzards not detected after {max_period}")
-    print(f"blizzards started to be periodic after {len(occupied_fields_by_time)}")
-    return occupied_fields_by_time
+    print(f"blizzards started to be periodic after {len(blizzard_fields_by_time)}")
+    return blizzard_fields_by_time
 
 
 def main():
     board = []
-    with open("data.txt", "r") as f:
+    with open("data_small.txt", "r") as f:
         for line in f:
             line = line.strip()
             if line:
                 board.append(line)
-    dst_y = len(board) - 1
-    dst_x = len(board[-1]) - 2
-    occupied_fields_by_time = precompute_blizzards(board)
+    height = len(board)
+    width = len(board[0])
+    dst_y = height - 1
+    dst_x = width - 2
+    blizzard_fields_by_time = precompute_blizzards(board)
     to_visit = [(1, 0, 0)]  # (x, y, time)
-    visited = {(1, 0, 0)}
+    seen_states = {(1, 0, 0)}  # (x, y, board state), board state being time % len(blizzard_fields_by_time)
+    best_time = 1<<63
+    iterations = 0
     while to_visit:
         x, y, t = to_visit.pop()
+        if (x, y) in blizzard_fields_by_time[t % len(blizzard_fields_by_time)]:
+            continue
+        min_time_left = dst_y - y + dst_x - x  # lower limit of time when we can reach the destination
+        if min_time_left + t >= best_time:  # prune current path if there is no point in exloring it
+            continue
+        for dx, dy in [(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1)]:  # go in one of 4 directions or wait (0, 0)
+            nx = x + dx
+            ny = y + dy
+            if nx == dst_x and ny == dst_y:  # destination reached in the next move
+                best_time = min(best_time, t + 1)
+                continue
+            if nx <= 0 or ny <= 0 or nx >= width - 1 or ny >= height - 1:
+                continue
+            new_board_state = (nx, ny, (t+1) % len(blizzard_fields_by_time))
+            if new_board_state in seen_states:
+                continue
+            seen_states.add(new_board_state)
+            to_visit.append((nx, ny, t+1))
+        iterations += 1
+        if iterations > 10000000:
+            print(f"cannot find path in reasonable time :( - current state ({x}, {y}, {t}), seen_states {len(seen_states)}, best_time {best_time}")
+            return
+    print(best_time)
 
 
 if __name__ == "__main__":
