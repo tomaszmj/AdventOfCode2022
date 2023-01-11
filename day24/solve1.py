@@ -1,5 +1,6 @@
 #!/usr/bin/python
 from typing import List, Set, Tuple
+from collections import defaultdict
 
 # precompute_blizzards returns a list - each i-th element of that
 # list is a set of fields occupied by blizzards in minute i.
@@ -71,37 +72,54 @@ def main():
     width = len(board[0])
     dst_y = height - 1
     dst_x = width - 2
-    blizzard_fields_by_time = precompute_blizzards(board)
-    to_visit = [(1, 0, 0)]  # (x, y, time)
-    seen_states_with_min_time = {(1, 0, 0): 0}  # (x, y, board state): time, board state being time % len(blizzard_fields_by_time)
-    best_time = 1<<63
-    iterations = 0
-    while to_visit:
-        x, y, t = to_visit.pop()
-        if (x, y) in blizzard_fields_by_time[t % len(blizzard_fields_by_time)]:
-            continue
-        min_time_left = dst_y - y + dst_x - x  # lower limit of time when we can reach the destination
-        if min_time_left + t >= best_time:  # prune current path if there is no point in exloring it
-            continue
-        for dx, dy in [(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1)]:  # go in one of 4 directions or wait (0, 0)
-            nx = x + dx
-            ny = y + dy
-            if nx == dst_x and ny == dst_y:  # destination reached in the next move
-                best_time = min(best_time, t + 1)
+    try:
+        blizzard_fields_by_time = precompute_blizzards(board)
+        to_visit = [(1, 0, 0)]  # (x, y, time)
+        seen_states_with_min_time = {(1, 0, 0): 0}  # (x, y, board state): time, board state being time % len(blizzard_fields_by_time)
+        best_time = 1<<63
+        stats = defaultdict(lambda: 0)
+        while to_visit:
+            stats["iterations"] += 1
+            x, y, t = to_visit.pop()
+            if (x, y) in blizzard_fields_by_time[t % len(blizzard_fields_by_time)]:
+                stats["blizzard"] += 1
                 continue
-            if nx <= 0 or ny <= 0 or nx >= width - 1 or ny >= height - 1:
+            min_time_left = dst_y - y + dst_x - x  # lower limit of time when we can reach the destination
+            if min_time_left + t >= best_time:  # prune current path if there is no point in exloring it
+                stats["min_time_left prune"] += 1
                 continue
-            new_board_state = (nx, ny, (t+1) % len(blizzard_fields_by_time))
-            if new_board_state in seen_states_with_min_time and \
-                seen_states_with_min_time[new_board_state] <= t + 1:
-                continue
-            seen_states_with_min_time[new_board_state] = t + 1
-            to_visit.append((nx, ny, t+1))
-        iterations += 1
-        if iterations > 100000000:
-            print(f"cannot find path in reasonable time :( - current state ({x}, {y}, {t}), seen_states {len(seen_states_with_min_time)}, best_time {best_time}")
-            return
-    print(best_time)
+            # Below we try to go in one of 4 directions or wait (0, 0).
+            # We first try going right / down, then wait, then up / down
+            # (the last subproblem checked will be explored first because
+            # to_visit is a stack). We first try to go in the directions
+            # that bring us closer to the destination, so that we are more
+            # likely to find a good solution (not necessarily the optimal) quicky.
+            # It will help pruning suboptimal paths quicker (tests have shown
+            # that the order of directions to check has huge impact on performance).
+            for dx, dy in [(-1, 0), (0, -1), (0, 0), (1, 0), (0, 1)]:
+                nx = x + dx
+                ny = y + dy
+                if nx == dst_x and ny == dst_y:  # destination reached in the next move
+                    best_time = min(best_time, t + 1)
+                    stats["destination reached"] += 1
+                    continue
+                if nx <= 0 or ny <= 0 or nx >= width - 1 or ny >= height - 1:
+                    stats["board edge"] += 1
+                    continue
+                new_board_state = (nx, ny, (t+1) % len(blizzard_fields_by_time))
+                if new_board_state in seen_states_with_min_time and \
+                    seen_states_with_min_time[new_board_state] <= t + 1:
+                    stats["state already seen earlier"] += 1
+                    continue
+                seen_states_with_min_time[new_board_state] = t + 1
+                to_visit.append((nx, ny, t+1))
+    except KeyboardInterrupt:
+        stats_str = ", ".join(f"{key}: {value}" for key, value in stats.items())
+        print(f"KeyboardInterrupt, current best_time: {best_time}, stats: {stats_str}\n")
+        raise
+    stats_str = ", ".join(f"{key}: {value}" for key, value in stats.items())
+    print("stats:", stats_str)
+    print("best_time:", best_time)
 
 
 if __name__ == "__main__":
