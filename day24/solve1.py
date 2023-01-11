@@ -1,6 +1,5 @@
 #!/usr/bin/python
 from typing import List, Set, Tuple
-from collections import defaultdict
 
 # precompute_blizzards returns a list - each i-th element of that
 # list is a set of fields occupied by blizzards in minute i.
@@ -63,7 +62,7 @@ def precompute_blizzards(board: List[str]) -> List[Set[Tuple[int, int]]]:
 
 def main():
     board = []
-    with open("data_small.txt", "r") as f:
+    with open("data.txt", "r") as f:
         for line in f:
             line = line.strip()
             if line:
@@ -74,7 +73,7 @@ def main():
     dst_x = width - 2
     blizzard_fields_by_time = precompute_blizzards(board)
     to_visit = [(1, 0, 0)]  # (x, y, time)
-    seen_states = {(1, 0, 0)}  # (x, y, board state), board state being time % len(blizzard_fields_by_time)
+    seen_states_with_min_time = {(1, 0, 0): 0}  # (x, y, board state): time, board state being time % len(blizzard_fields_by_time)
     best_time = 1<<63
     iterations = 0
     while to_visit:
@@ -93,13 +92,14 @@ def main():
             if nx <= 0 or ny <= 0 or nx >= width - 1 or ny >= height - 1:
                 continue
             new_board_state = (nx, ny, (t+1) % len(blizzard_fields_by_time))
-            if new_board_state in seen_states:
+            if new_board_state in seen_states_with_min_time and \
+                seen_states_with_min_time[new_board_state] <= t + 1:
                 continue
-            seen_states.add(new_board_state)
+            seen_states_with_min_time[new_board_state] = t + 1
             to_visit.append((nx, ny, t+1))
         iterations += 1
-        if iterations > 10000000:
-            print(f"cannot find path in reasonable time :( - current state ({x}, {y}, {t}), seen_states {len(seen_states)}, best_time {best_time}")
+        if iterations > 100000000:
+            print(f"cannot find path in reasonable time :( - current state ({x}, {y}, {t}), seen_states {len(seen_states_with_min_time)}, best_time {best_time}")
             return
     print(best_time)
 
