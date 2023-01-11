@@ -2,6 +2,7 @@
 from typing import List, Set, Tuple
 from collections import defaultdict
 
+
 # precompute_blizzards returns a list - each i-th element of that
 # list is a set of fields occupied by blizzards in minute i.
 # It can be precomputed because blizzards move periodically.
@@ -61,49 +62,52 @@ def precompute_blizzards(board: List[str]) -> List[Set[Tuple[int, int]]]:
     return blizzard_fields_by_time
 
 
-def main():
-    board = []
-    with open("data.txt", "r") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                board.append(line)
+def find_path(
+    board: List[str],
+    blizzard_fields_by_time: List[Set[Tuple[int, int]]],
+    time_begin: int,
+    reverse: bool,
+) -> int:
+    print(f"running find_path with time_begin {time_begin}, reverse {reverse}")
     height = len(board)
     width = len(board[0])
-    dst_y = height - 1
-    dst_x = width - 2
+    begin = (1, 0)
+    end = (width - 2, height -1)
+    # We are going to try to go in one of 4 directions or wait (0, 0).
+    # We first try to go "in a greedy way" in the direction of destination
+    # (the last subproblem checked will be explored first because
+    # to_visit is a stack). Thanks to it, we are more likely to find
+    # a good solution (not necessarily the optimal one) quicky.
+    # It will help pruning suboptimal paths quicker (tests have shown
+    # that the order of directions to check has huge impact on performance).
+    directions_to_check = [(-1, 0), (0, -1), (0, 0), (1, 0), (0, 1)]
+    if reverse:
+        begin, end = end, begin
+        directions_to_check = [(1, 0), (0, 1), (0, 0), (-1, 0), (0, -1)]
+    initial_board_state = (begin[0], begin[1], time_begin % len(blizzard_fields_by_time))  # (x, y, number determining state of blizzards)
+    seen_states_with_min_time = {initial_board_state: time_begin}
+    best_time = 1<<63
+    stats = defaultdict(lambda: 0)
+    to_visit = [(begin[0], begin[1], time_begin)]  # (x, y, time)
     try:
-        blizzard_fields_by_time = precompute_blizzards(board)
-        to_visit = [(1, 0, 0)]  # (x, y, time)
-        seen_states_with_min_time = {(1, 0, 0): 0}  # (x, y, board state): time, board state being time % len(blizzard_fields_by_time)
-        best_time = 1<<63
-        stats = defaultdict(lambda: 0)
         while to_visit:
             stats["iterations"] += 1
             x, y, t = to_visit.pop()
             if (x, y) in blizzard_fields_by_time[t % len(blizzard_fields_by_time)]:
                 stats["blizzard"] += 1
                 continue
-            min_time_left = dst_y - y + dst_x - x  # lower limit of time when we can reach the destination
+            min_time_left = end[1] - y + end[0] - x  # lower limit of time when we can reach the destination
             if min_time_left + t >= best_time:  # prune current path if there is no point in exloring it
                 stats["min_time_left prune"] += 1
                 continue
-            # Below we try to go in one of 4 directions or wait (0, 0).
-            # We first try going right / down, then wait, then up / down
-            # (the last subproblem checked will be explored first because
-            # to_visit is a stack). We first try to go in the directions
-            # that bring us closer to the destination, so that we are more
-            # likely to find a good solution (not necessarily the optimal) quicky.
-            # It will help pruning suboptimal paths quicker (tests have shown
-            # that the order of directions to check has huge impact on performance).
-            for dx, dy in [(-1, 0), (0, -1), (0, 0), (1, 0), (0, 1)]:
+            for dx, dy in directions_to_check:
                 nx = x + dx
                 ny = y + dy
-                if nx == dst_x and ny == dst_y:  # destination reached in the next move
+                if (nx, ny) == end:  # destination reached in the next move
                     best_time = min(best_time, t + 1)
                     stats["destination reached"] += 1
                     continue
-                if nx <= 0 or ny <= 0 or nx >= width - 1 or ny >= height - 1:
+                if (nx, ny) != begin and (nx <= 0 or ny <= 0 or nx >= width - 1 or ny >= height - 1):
                     stats["board edge"] += 1
                     continue
                 new_board_state = (nx, ny, (t+1) % len(blizzard_fields_by_time))
@@ -115,11 +119,32 @@ def main():
                 to_visit.append((nx, ny, t+1))
     except KeyboardInterrupt:
         stats_str = ", ".join(f"{key}: {value}" for key, value in stats.items())
-        print(f"KeyboardInterrupt, current best_time: {best_time}, stats: {stats_str}\n")
+        print(f"\nfind_path interrupted, current best_time: {best_time}, stats: {stats_str}\n")
         raise
     stats_str = ", ".join(f"{key}: {value}" for key, value in stats.items())
-    print("stats:", stats_str)
-    print("best_time:", best_time)
+    print(f"find_path done - best_time: {best_time}, stats: {stats_str}")
+    return best_time
+
+
+def main():
+    board = []
+    with open("data.txt", "r") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                board.append(line)
+    blizzard_fields_by_time = precompute_blizzards(board)
+    time1 = find_path(board, blizzard_fields_by_time, 0, False)
+    print("part1:", time1)
+    # For part2 we can divide whole path into 3 parts in a "greedy" way.
+    # There is no point in checking suboptimal partial paths, because
+    # even if there was a solution that takes longer path from begin to end
+    # to avoid blizzards on path from end to begin, we can reach the same
+    # goal by waiting: go begin->end in the fastest way possible and
+    # wait in end position for blizzards to pass (step with dx, dy (0, 0)).
+    time2 = find_path(board, blizzard_fields_by_time, time1, True)
+    time3 = find_path(board, blizzard_fields_by_time, time2, False)
+    print("part2:", time3)
 
 
 if __name__ == "__main__":
