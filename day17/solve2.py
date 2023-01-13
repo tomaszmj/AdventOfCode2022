@@ -88,7 +88,10 @@ def check_height_cycle(delta_height: List[int]):
                 max_len = ll
                 max_i0 = i0
                 max_i1 = i1
-    print(f"detected height diff similarity at i0={max_i0}, i1={max_i1}, max_len={max_len}, rocks fallen {end}")
+    if max_i0 + max_len == max_i1:
+        print(f"detected height diff similarity at i0={max_i0}, i1={max_i1}, max_len={max_len}, rocks fallen {end}")
+    else:
+        print(f"detected pseudo-height diff similarity at i0={max_i0}, i1={max_i1}, max_len={max_len}, rocks fallen {end}")
 
 
 def main():
@@ -106,7 +109,7 @@ def main():
     rocks = itertools.cycle(rocks_as_sets)
     delta_height = []
     last_height = 0
-    for _ in range(len(ROCKS)*len(INPUT_SMALL)*6):
+    for _ in range(len(ROCKS)*len(INPUT_SMALL)*3+15):
         rock = rocks.__next__()
         x, y = 2, height + 3
         while True:
